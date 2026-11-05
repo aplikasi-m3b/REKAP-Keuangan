@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aplikasi Rekap Keuangan</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js untuk Grafik -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans">
+
+  <!-- ================= HALAMAN LOGIN ================= -->
+  <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-xl p-8 border border-slate-200">
+      <div class="text-center mb-6">
+        <h1 class="text-2xl font-bold text-slate-800">Sistem Rekap Keuangan</h1>
+        <p class="text-sm text-slate-500 mt-1">Silakan pilih akun dan masukkan password</p>
+      </div>
+
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Pilih Akun</label>
+          <select id="loginRole" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="admin">Admin</option>
+            <option value="petugas">Petugas</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+          <input type="password" id="loginPassword" required placeholder="Masukkan password..."
+            class="w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <p id="loginError" class="text-sm text-red-600 hidden"></p>
+
+        <button type="submit"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition">
+          Masuk Aplikasi
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= HALAMAN UTAMA APLIKASI ================= -->
+  <div id="appScreen" class="hidden">
+    <!-- Navbar -->
+    <header class="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-20">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap justify-between items-center gap-3">
+        <div>
+          <h1 class="text-xl font-bold text-slate-800">Aplikasi Rekap Keuangan</h1>
+          <p class="text-xs text-slate-500">Login sebagai: <span id="activeRoleBadge" class="font-semibold uppercase text-blue-600"></span></p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="fetchDataFromGAS()" class="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg font-medium transition">
+            Muat Ulang Data
+          </button>
+          <button onclick="logout()" class="text-sm bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg font-semibold transition">
+            Keluar
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <!-- Indikator Loading -->
+      <div id="loadingIndicator" class="hidden bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between">
+        <span>Sedang menyinkronkan data dengan Google Sheets...</span>
+      </div>
+
+      <!-- Ringkasan Kartu Saldo -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Saldo Awal</p>
+          <p id="cardSaldoAwal" class="text-2xl font-bold text-slate-800 mt-1">Rp 0</p>
+        </div>
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+          <p class="text-xs font-semibold uppercase tracking-wider text-emerald-600">Total Pemasukan</p>
+          <p id="cardTotalPemasukan" class="text-2xl font-bold text-emerald-600 mt-1">Rp 0</p>
+        </div>
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+          <p class="text-xs font-semibold uppercase tracking-wider text-rose-600">Total Pengeluaran</p>
+          <p id="cardTotalPengeluaran" class="text-2xl font-bold text-rose-600 mt-1">Rp 0</p>
+        </div>
+        <div class="bg-blue-600 p-5 rounded-xl shadow-sm text-white">
+          <p class="text-xs font-semibold uppercase tracking-wider text-blue-100">Saldo Akhir Saat Ini</p>
+          <p id="cardSaldoAkhir" class="text-2xl font-bold mt-1">Rp 0</p>
+        </div>
+      </div>
+
+      <!-- Panel Set Saldo Awal (KHUSUS ADMIN) -->
+      <div id="adminSaldoBox" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <h2 class="text-base font-bold text-slate-800 mb-3">Pengaturan Saldo Awal (Khusus Admin)</h2>
+        <form id="formSaldoAwal" class="flex flex-col sm:flex-row gap-3 items-end">
+          <div class="w-full sm:w-72">
+            <label class="block text-xs font-medium text-slate-600 mb-1">Nominal Saldo Awal (Rp)</label>
+            <input type="number" id="inputSaldoAwal" required min="0" placeholder="Contoh: 10000000"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">
+            Simpan Saldo Awal
+          </button>
+        </form>
+      </div>
+
+      <!-- Panel Input Transaksi (Pemasukan, Pengeluaran Umum, Jasa Tukang/Kuli) -->
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <h2 class="text-base font-bold text-slate-800 mb-4">Input Transaksi Keuangan</h2>
+
+        <!-- Pilihan Tab Form -->
+        <div class="flex flex-wrap gap-2 border-b border-slate-200 pb-3 mb-4">
+          <button type="button" onclick="switchInputTab('pemasukan')" id="tabBtnPemasukan"
+            class="px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-600 text-white">
+            + Input Pemasukan
+          </button>
+          <button type="button" onclick="switchInputTab('pengeluaran')" id="tabBtnPengeluaran"
+            class="px-4 py-2 rounded-lg text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200">
+            - Input Pengeluaran Umum
+          </button>
+          <button type="button" onclick="switchInputTab('tukang')" id="tabBtnTukang"
+            class="px-4 py-2 rounded-lg text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200">
+            - Input Jasa Tukang & Kuli
+          </button>
+        </div>
+
+        <!-- 1. Form Input Pemasukan -->
+        <form id="formPemasukan" class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Tanggal</label>
+            <input type="date" id="inTanggal" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-medium text-slate-600 mb-1">Nama Pemasukan</label>
+            <input type="text" id="inNama" required placeholder="Contoh: Dana Proyek Tahap 1"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Jumlah Pemasukan (Rp)</label>
+            <input type="number" id="inNominal" required min="1" placeholder="Contoh: 5000000"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div class="sm:col-span-4 flex justify-end">
+            <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition">
+              Simpan Pemasukan
+            </button>
+          </div>
+        </form>
+
+        <!-- 2. Form Input Pengeluaran Umum -->
+        <form id="formPengeluaran" class="hidden grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Tanggal</label>
+            <input type="date" id="outTanggal" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-medium text-slate-600 mb-1">Nama Pengeluaran</label>
+            <input type="text" id="outNama" required placeholder="Contoh: Pembelian Semen 20 Sak"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Jumlah Pengeluaran (Rp)</label>
+            <input type="number" id="outNominal" required min="1" placeholder="Contoh: 1300000"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div class="sm:col-span-4 flex justify-end">
+            <button type="submit" class="bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition">
+              Simpan Pengeluaran
+            </button>
+          </div>
+        </form>
+
+        <!-- 3. Form Input Jasa Tukang & Kuli -->
+        <form id="formTukang" class="hidden grid grid-cols-1 sm:grid-cols-6 gap-4 items-end">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Tanggal</label>
+            <input type="date" id="tkTanggal" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Jenis Jasa</label>
+            <select id="tkJenisJasa" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+              <option value="Jasa Tukang">Jasa Tukang</option>
+              <option value="Jasa Kuli">Jasa Kuli</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Nama / Keterangan</label>
+            <input type="text" id="tkNama" required placeholder="Contoh: Pak Budi"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Upah per Hari (Rp)</label>
+            <input type="number" id="tkTarif" required min="1" placeholder="120000" oninput="hitungTotalTukang()"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Jumlah Hari</label>
+            <input type="number" id="tkHari" required min="1" placeholder="5" oninput="hitungTotalTukang()"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Total Otomatis (Rp)</label>
+            <input type="text" id="tkTotalPreview" readonly value="Rp 0"
+              class="w-full rounded-lg bg-slate-100 border border-slate-300 px-3 py-2 text-sm font-bold text-rose-600" />
+          </div>
+          <div class="sm:col-span-6 flex justify-end">
+            <button type="submit" class="bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition">
+              Simpan Pengeluaran Jasa
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Grafik & Rekapitulasi Bulanan -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Grafik -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-base font-bold text-slate-800">Grafik Pemasukan & Pengeluaran</h2>
+            <select id="filterTahun" onchange="renderDashboard()" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+            </select>
+          </div>
+          <div class="h-72">
+            <canvas id="rekapChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Tabel Rekap Bulanan -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <h2 class="text-base font-bold text-slate-800 mb-4">Rekapitulasi Bulanan</h2>
+          <div class="overflow-x-auto max-h-72">
+            <table class="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-slate-600">
+                  <th class="py-2.5 px-3">Bulan</th>
+                  <th class="py-2.5 px-3 text-right">Pemasukan</th>
+                  <th class="py-2.5 px-3 text-right">Pengeluaran</th>
+                  <th class="py-2.5 px-3 text-right">Selisih</th>
+                </tr>
+              </thead>
+              <tbody id="tabelRekapBulanan" class="divide-y divide-slate-200"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabel Riwayat Detail Transaksi -->
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <h2 class="text-base font-bold text-slate-800 mb-4">Riwayat Transaksi Lengkap</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-slate-600">
+                <th class="py-3 px-3">Tanggal</th>
+                <th class="py-3 px-3">Jenis</th>
+                <th class="py-3 px-3">Kategori</th>
+                <th class="py-3 px-3">Nama / Rincian</th>
+                <th class="py-3 px-3 text-right">Nominal</th>
+                <th class="py-3 px-3">Oleh</th>
+                <th id="thAksiAdmin" class="py-3 px-3 text-center hidden">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tabelTransaksi" class="divide-y divide-slate-200"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ================= MODAL EDIT TRANSAKSI (KHUSUS ADMIN) ================= -->
+  <div id="editModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl max-w-md w-full p-6 space-y-4 shadow-xl">
+      <h3 class="text-lg font-bold text-slate-800">Edit Data Transaksi</h3>
+      <form id="formEditTransaksi" class="space-y-3">
+        <input type="hidden" id="editId" />
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Tanggal</label>
+          <input type="date" id="editTanggal" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Jenis Transaksi</label>
+          <select id="editJenis" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <option value="Pemasukan">Pemasukan</option>
+            <option value="Pengeluaran">Pengeluaran</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Kategori</label>
+          <input type="text" id="editKategori" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Nama Transaksi</label>
+          <input type="text" id="editNama" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Tarif Harian (Opsional)</label>
+            <input type="number" id="editTarif" min="0" oninput="hitungEditTotal()" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Jumlah Hari (Opsional)</label>
+            <input type="number" id="editHari" min="0" oninput="hitungEditTotal()" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Total Nominal (Rp)</label>
+          <input type="number" id="editNominal" required min="1" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold" />
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeEditModal()" class="px-4 py-2 rounded-lg text-sm bg-slate-100 hover:bg-slate-200 text-slate-700">
+            Batal
+          </button>
+          <button type="submit" class="px-4 py-2 rounded-lg text-sm bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+            Simpan Perubahan
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= SCRIPT LOGIKA APLIKASI ================= -->
+  <script>
+    // GANTI URL DI BAWAH INI DENGAN URL DEPLOYMENT WEB APP GAS ANDA
+    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzvNJqM1u2rJDojhQG4hb1M2IruIlAch41jOLVlK9nF_r4eY0jtnnDUu_CQJzKA_IL3aw/exec';
+
+    const PASSWORDS = {
+      admin: 'admin13579',
+      petugas: '123321'
+    };
+
+    const NAMA_BULAN = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+
+    let currentUserRole = null;
+    let stateSaldoAwal = 0;
+    let stateTransaksi = [];
+    let chartInstance = null;
+
+    // Set tanggal hari ini secara default pada form
+    function setDefaultDates() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('inTanggal').value = today;
+      document.getElementById('outTanggal').value = today;
+      document.getElementById('tkTanggal').value = today;
+    }
+
+    // Format Angka ke Rupiah
+    function formatRupiah(angka) {
+      return 'Rp ' + Number(angka || 0).toLocaleString('id-ID');
+    }
+
+    // Login Handler
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const role = document.getElementById('loginRole').value;
+      const pass = document.getElementById('loginPassword').value;
+      const errEl = document.getElementById('loginError');
+
+      if (PASSWORDS[role] && PASSWORDS[role] === pass) {
+        currentUserRole = role;
+        errEl.classList.add('hidden');
+        document.getElementById('loginPassword').value = '';
+        enterApp();
+      } else {
+        errEl.textContent = 'Password salah untuk akun ' + role.toUpperCase() + '!';
+        errEl.classList.remove('hidden');
+      }
+    });
+
+    function enterApp() {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('appScreen').classList.remove('hidden');
+      document.getElementById('activeRoleBadge').textContent = currentUserRole;
+
+      // Tampilkan fitur khusus Admin jika login sebagai Admin
+      if (currentUserRole === 'admin') {
+        document.getElementById('adminSaldoBox').classList.remove('hidden');
+        document.getElementById('thAksiAdmin').classList.remove('hidden');
+      } else {
+        document.getElementById('adminSaldoBox').classList.add('hidden');
+        document.getElementById('thAksiAdmin').classList.add('hidden');
+      }
+
+      setDefaultDates();
+      initYearFilter();
+      fetchDataFromGAS();
+    }
+
+    function logout() {
+      currentUserRole = null;
+      document.getElementById('appScreen').classList.add('hidden');
+      document.getElementById('loginScreen').classList.remove('hidden');
+    }
+
+    // Navigasi Tab Input
+    function switchInputTab(tab) {
+      const forms = {
+        pemasukan: document.getElementById('formPemasukan'),
+        pengeluaran: document.getElementById('formPengeluaran'),
+        tukang: document.getElementById('formTukang')
+      };
+      const btns = {
+        pemasukan: document.getElementById('tabBtnPemasukan'),
+        pengeluaran: document.getElementById('tabBtnPengeluaran'),
+        tukang: document.getElementById('tabBtnTukang')
+      };
+
+      Object.keys(forms).forEach(k => {
+        forms[k].classList.add('hidden');
+        btns[k].className = 'px-4 py-2 rounded-lg text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200';
+      });
+
+      forms[tab].classList.remove('hidden');
+      if (tab === 'pemasukan') {
+        btns[tab].className = 'px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-600 text-white';
+      } else {
+        btns[tab].className = 'px-4 py-2 rounded-lg text-sm font-semibold bg-rose-600 text-white';
+      }
+    }
+
+    // Kalkulasi Otomatis Jasa Tukang & Kuli
+    function hitungTotalTukang() {
+      const tarif = Number(document.getElementById('tkTarif').value) || 0;
+      const hari = Number(document.getElementById('tkHari').value) || 0;
+      document.getElementById('tkTotalPreview').value = formatRupiah(tarif * hari);
+    }
+
+    function hitungEditTotal() {
+      const tarif = Number(document.getElementById('editTarif').value) || 0;
+      const hari = Number(document.getElementById('editHari').value) || 0;
+      if (tarif > 0 && hari > 0) {
+        document.getElementById('editNominal').value = tarif * hari;
+      }
+    }
+
+    // Komunikasi API dengan Google Apps Script
+    async function sendRequestToGAS(payload) {
+      const loader = document.getElementById('loadingIndicator');
+      loader.classList.remove('hidden');
+      try {
+        const response = await fetch(GAS_WEB_APP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (result.status === 'success') {
+          stateSaldoAwal = Number(result.saldoAwal) || 0;
+          stateTransaksi = Array.isArray(result.transaksi) ? result.transaksi : [];
+          document.getElementById('inputSaldoAwal').value = stateSaldoAwal;
+          updateYearDropdown();
+          renderDashboard();
+        } else {
+          alert('Terjadi kesalahan: ' + (result.message || 'Gagal memuat data'));
+        }
+      } catch (err) {
+        alert('Gagal terhubung ke server Google Apps Script. Pastikan GAS_WEB_APP_URL sudah benar dan di-deploy untuk "Anyone".');
+      } finally {
+        loader.classList.add('hidden');
+      }
+    }
+
+    function fetchDataFromGAS() {
+      sendRequestToGAS({ action: 'getData' });
+    }
+
+    // Submit Set Saldo Awal (Admin)
+    document.getElementById('formSaldoAwal').addEventListener('submit', function(e) {
+      e.preventDefault();
+      if (currentUserRole !== 'admin') return;
+      const nominal = Number(document.getElementById('inputSaldoAwal').value) || 0;
+      sendRequestToGAS({ action: 'setSaldoAwal', nominal: nominal });
+    });
+
+    // Submit Pemasukan
+    document.getElementById('formPemasukan').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const data = {
+        tanggal: document.getElementById('inTanggal').value,
+        jenis: 'Pemasukan',
+        kategori: 'Pemasukan Umum',
+        nama: document.getElementById('inNama').value,
+        tarifHarian: 0,
+        jumlahHari: 0,
+        nominal: Number(document.getElementById('inNominal').value) || 0,
+        user: currentUserRole
+      };
+      document.getElementById('inNama').value = '';
+      document.getElementById('inNominal').value = '';
+      sendRequestToGAS({ action: 'addTransaksi', data: data });
+    });
+
+    // Submit Pengeluaran Umum
+    document.getElementById('formPengeluaran').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const data = {
+        tanggal: document.getElementById('outTanggal').value,
+        jenis: 'Pengeluaran',
+        kategori: 'Pengeluaran Umum',
+        nama: document.getElementById('outNama').value,
+        tarifHarian: 0,
+        jumlahHari: 0,
+        nominal: Number(document.getElementById('outNominal').value) || 0,
+        user: currentUserRole
+      };
+      document.getElementById('outNama').value = '';
+      document.getElementById('outNominal').value = '';
+      sendRequestToGAS({ action: 'addTransaksi', data: data });
+    });
+
+    // Submit Pengeluaran Jasa Tukang & Kuli
+    document.getElementById('formTukang').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const tarif = Number(document.getElementById('tkTarif').value) || 0;
+      const hari = Number(document.getElementById('tkHari').value) || 0;
+      const jenisJasa = document.getElementById('tkJenisJasa').value;
+      const namaPekerja = document.getElementById('tkNama').value;
+
+      const data = {
+        tanggal: document.getElementById('tkTanggal').value,
+        jenis: 'Pengeluaran',
+        kategori: jenisJasa,
+        nama: `${jenisJasa} - ${namaPekerja}`,
+        tarifHarian: tarif,
+        jumlahHari: hari,
+        nominal: tarif * hari,
+        user: currentUserRole
+      };
+      document.getElementById('tkNama').value = '';
+      document.getElementById('tkTarif').value = '';
+      document.getElementById('tkHari').value = '';
+      document.getElementById('tkTotalPreview').value = 'Rp 0';
+      sendRequestToGAS({ action: 'addTransaksi', data: data });
+    });
+
+    // Filter Tahun untuk Rekap & Grafik
+    function initYearFilter() {
+      const select = document.getElementById('filterTahun');
+      const currentYear = new Date().getFullYear();
+      select.innerHTML = `<option value="${currentYear}">${currentYear}</option>`;
+    }
+
+    function updateYearDropdown() {
+      const select = document.getElementById('filterTahun');
+      const selectedYear = select.value || String(new Date().getFullYear());
+      const years = new Set([String(new Date().getFullYear())]);
+
+      stateTransaksi.forEach(item => {
+        if (item.tanggal && item.tanggal.length >= 4) {
+          years.add(item.tanggal.substring(0, 4));
+        }
+      });
+
+      const sortedYears = Array.from(years).sort((a, b) => b - a);
+      select.innerHTML = sortedYears.map(y => `<option value="${y}">${y}</option>`).join('');
+      if (sortedYears.includes(selectedYear)) {
+        select.value = selectedYear;
+      }
+    }
+
+    // Render Seluruh Komponen Dashboard
+    function renderDashboard() {
+      let totalMasuk = 0;
+      let totalKeluar = 0;
+
+      stateTransaksi.forEach(t => {
+        if (t.jenis === 'Pemasukan') totalMasuk += Number(t.nominal) || 0;
+        else totalKeluar += Number(t.nominal) || 0;
+      });
+
+      const saldoAkhir = stateSaldoAwal + totalMasuk - totalKeluar;
+
+      document.getElementById('cardSaldoAwal').textContent = formatRupiah(stateSaldoAwal);
+      document.getElementById('cardTotalPemasukan').textContent = formatRupiah(totalMasuk);
+      document.getElementById('cardTotalPengeluaran').textContent = formatRupiah(totalKeluar);
+      document.getElementById('cardSaldoAkhir').textContent = formatRupiah(saldoAkhir);
+
+      renderMonthlyRecapAndChart();
+      renderTransactionTable();
+    }
+
+    // Render Rekap Bulanan & Grafik Chart.js
+    function renderMonthlyRecapAndChart() {
+      const tahunPilih = document.getElementById('filterTahun').value;
+      const pemasukanBulanan = Array(12).fill(0);
+      const pengeluaranBulanan = Array(12).fill(0);
+
+      stateTransaksi.forEach(t => {
+        if (!t.tanggal) return;
+        const parts = t.tanggal.split('-');
+        if (parts[0] === tahunPilih) {
+          const monthIdx = parseInt(parts[1], 10) - 1;
+          if (monthIdx >= 0 && monthIdx < 12) {
+            if (t.jenis === 'Pemasukan') {
+              pemasukanBulanan[monthIdx] += Number(t.nominal) || 0;
+            } else {
+              pengeluaranBulanan[monthIdx] += Number(t.nominal) || 0;
+            }
+          }
+        }
+      });
+
+      // Isi Tabel Rekap Bulanan
+      const tbodyRekap = document.getElementById('tabelRekapBulanan');
+      tbodyRekap.innerHTML = NAMA_BULAN.map((namaBulan, idx) => {
+        const masuk = pemasukanBulanan[idx];
+        const keluar = pengeluaranBulanan[idx];
+        const selisih = masuk - keluar;
+        const selisihClass = selisih >= 0 ? 'text-emerald-600' : 'text-rose-600';
+
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2 px-3 font-medium">${namaBulan}</td>
+            <td class="py-2 px-3 text-right text-emerald-600">${formatRupiah(masuk)}</td>
+            <td class="py-2 px-3 text-right text-rose-600">${formatRupiah(keluar)}</td>
+            <td class="py-2 px-3 text-right font-semibold ${selisihClass}">${formatRupiah(selisih)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      // Render Grafik
+      const ctx = document.getElementById('rekapChart').getContext('2d');
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: NAMA_BULAN.map(b => b.substring(0, 3)),
+          datasets: [
+            {
+              label: 'Pemasukan',
+              data: pemasukanBulanan,
+              backgroundColor: '#059669',
+              borderRadius: 4
+            },
+            {
+              label: 'Pengeluaran',
+              data: pengeluaranBulanan,
+              backgroundColor: '#e11d48',
+              borderRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top' }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    // Render Tabel Riwayat Transaksi
+    function renderTransactionTable() {
+      const tbody = document.getElementById('tabelTransaksi');
+      const sorted = [...stateTransaksi].reverse();
+
+      if (sorted.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400">Belum ada data transaksi.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = sorted.map(t => {
+        const badgeColor = t.jenis === 'Pemasukan'
+          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+          : 'bg-rose-50 text-rose-700 border-rose-200';
+        const nominalColor = t.jenis === 'Pemasukan' ? 'text-emerald-600' : 'text-rose-600';
+        const rincianTukang = (t.tarifHarian > 0 && t.jumlahHari > 0)
+          ? `<div class="text-xs text-slate-500">${formatRupiah(t.tarifHarian)} x ${t.jumlahHari} hari</div>`
+          : '';
+
+        const aksiAdminHtml = currentUserRole === 'admin'
+          ? `<td class="py-3 px-3 text-center whitespace-nowrap">
+               <button onclick="openEditModal('${t.id}')" class="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 px-2.5 py-1 rounded font-semibold mr-1">Edit</button>
+               <button onclick="hapusTransaksi('${t.id}')" class="text-xs bg-red-50 hover:bg-red-100 text-red-600 px-2.5 py-1 rounded font-semibold">Hapus</button>
+             </td>`
+          : '';
+
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-3 px-3 whitespace-nowrap">${t.tanggal}</td>
+            <td class="py-3 px-3"><span class="text-xs px-2.5 py-1 rounded-full border font-medium ${badgeColor}">${t.jenis}</span></td>
+            <td class="py-3 px-3">${t.kategori}</td>
+            <td class="py-3 px-3 font-medium">${t.nama}${rincianTukang}</td>
+            <td class="py-3 px-3 text-right font-bold whitespace-nowrap ${nominalColor}">${formatRupiah(t.nominal)}</td>
+            <td class="py-3 px-3 text-xs uppercase text-slate-500">${t.user}</td>
+            ${aksiAdminHtml}
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Fitur Edit & Hapus (Khusus Admin)
+    function openEditModal(id) {
+      if (currentUserRole !== 'admin') return;
+      const item = stateTransaksi.find(t => t.id === id);
+      if (!item) return;
+
+      document.getElementById('editId').value = item.id;
+      document.getElementById('editTanggal').value = item.tanggal;
+      document.getElementById('editJenis').value = item.jenis;
+      document.getElementById('editKategori').value = item.kategori;
+      document.getElementById('editNama').value = item.nama;
+      document.getElementById('editTarif').value = item.tarifHarian || 0;
+      document.getElementById('editHari').value = item.jumlahHari || 0;
+      document.getElementById('editNominal').value = item.nominal;
+
+      document.getElementById('editModal').classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModal').classList.add('hidden');
+    }
+
+    document.getElementById('formEditTransaksi').addEventListener('submit', function(e) {
+      e.preventDefault();
+      if (currentUserRole !== 'admin') return;
+
+      const data = {
+        id: document.getElementById('editId').value,
+        tanggal: document.getElementById('editTanggal').value,
+        jenis: document.getElementById('editJenis').value,
+        kategori: document.getElementById('editKategori').value,
+        nama: document.getElementById('editNama').value,
+        tarifHarian: Number(document.getElementById('editTarif').value) || 0,
+        jumlahHari: Number(document.getElementById('editHari').value) || 0,
+        nominal: Number(document.getElementById('editNominal').value) || 0
+      };
+
+      closeEditModal();
+      sendRequestToGAS({ action: 'editTransaksi', data: data });
+    });
+
+    function hapusTransaksi(id) {
+      if (currentUserRole !== 'admin') return;
+      if (confirm('Apakah Anda yakin ingin menghapus transaksi ini? Saldo akan otomatis disesuaikan.')) {
+        sendRequestToGAS({ action: 'deleteTransaksi', id: id });
+      }
+    }
+  </script>
+</body>
+</html>
